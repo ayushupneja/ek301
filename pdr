@@ -1,0 +1,94 @@
+%Input the Filename to get variables
+x = input('Enter file name: ','s');
+load(x);
+
+%Preallocation
+
+[joints,members] = size(C);
+Coef = zeros(2*joints,members+3);
+IntF = zeros(members+3,1);
+BuckF = zeros(1,members);
+Length = zeros(1,members);
+UNC = zeros(1,members);
+connectedJoints = zeros(2,members);
+IntF = zeros(members+3, 1);
+for i = 1:members
+connectedJoints(:,i)=find(C(:,i));
+end
+
+%Coefficients
+for i = 1:members
+currentMJ1 = min(connectedJoints(:,i));
+currentMJ2 = max(connectedJoints(:,i));
+xCoorJ2 = X(currentMJ2);
+yCoorJ2 = Y(currentMJ2);
+xCoorJ1 = X(currentMJ1);
+yCoorJ1 = Y(currentMJ1);
+r = sqrt((xCoorJ2-xCoorJ1)^2+(yCoorJ2-yCoorJ1)^2);
+Coef(currentMJ1,i) = (xCoorJ2-xCoorJ1)/r;
+Coef(currentMJ2,i) = (xCoorJ1-xCoorJ2)/r;
+Coef(joints+currentMJ1,i) = (yCoorJ2-yCoorJ1)/r;
+Coef(joints+currentMJ2,i) = (yCoorJ1-yCoorJ2)/r;
+Length(i) = r;
+BuckF(1,i) = 1439.043/r.^(2);
+%U(1,i) = 817.4265/r.^(3);
+end
+Coef(1:joints,members+1:members+3) = Sx;
+Coef(joints+1:2*joints,members+1:members+3) = Sy;
+%Results
+IntF = inv(Coef)*(L);
+totalLength = sum(Length);
+for i = 1:members
+    UNC(1,i) = (1/abs(IntF(i)));
+end
+cost = 10*joints + 1*totalLength;
+%Finds Compression Members
+for i = 1:members
+if IntF(i) < 0
+scaleratio(i) = abs(IntF(i))/BuckF(i);
+end
+end
+%Finds Critical Member
+for i = 1:max(size(scaleratio))
+if max(abs(scaleratio)) == abs(scaleratio(i))
+criticalmember = i;
+end
+end
+%Theroetical Max Load
+maxLoad = sum(L)/(max(abs(IntF)./BuckF(criticalmember)));
+maxLoadCritical = abs(IntF(criticalmember));
+%Umaxload = (817.4265*maxLoad)/(((totalLength).^3)*maxLoadCritical);
+UmaxLoad = UNC(criticalmember)*4.9;
+%Print Results
+fprintf('\nEK301, Section A4, Group ENG Dropouts: Vivek Cherian, Maxine Loebs, Ayush Upneja,');
+fprintf(date);
+fprintf('\nLoad: %.2f N \n',sum(L));
+fprintf('Member forces in Newtons \n');
+for i=1:members
+if IntF(i) < 0
+fprintf('m%d: %.2f (C) %c %.2f\n',i,abs(IntF(i)),char(177),UNC(i));
+fprintf('The buckling strength of this member is %.3f\n',...
+BuckF(i));
+elseif IntF(i) > 0
+fprintf('m%d: %.2f (T) %c %.2f\n',i,abs(IntF(i)),char(177),UNC(i));
+else
+fprintf('m%d: 0.00\n',i);
+end
+end
+fprintf('\nReaction forces in Newtons\n');
+for i=1:1
+fprintf('Sx%d: %.2f\n',i,IntF(members+i));
+end
+for i=2:3
+
+fprintf('Sy%d: %.2f\n',(i-1),IntF(members+i));
+end
+for i=1:members
+if i == criticalmember
+fprintf('\nMember %d is the Critical Member\n',i);
+end
+end
+fprintf('\nThe Theoretical Maximum Load of the truss is %.2f %c %.2f N',...
+maxLoad, char(177), UmaxLoad);
+fprintf('\nCost of truss: $%d',round(cost));
+fprintf('\nTheoretical Max Load/Cost Ratio in N/$: %.3f\n\n',maxLoad/cost);
